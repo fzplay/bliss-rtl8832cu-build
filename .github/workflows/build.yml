@@ -1,0 +1,123 @@
+name: Build RTL8832CU for BlissOS 16.9.7
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout build repo
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev dwarves xz-utils zstd git curl file kmod
+
+      - name: Restore exact Bliss kernel inputs
+        run: |
+          mkdir -p restored
+          : > restored/kernel.config
+          for f in inputs/config.part*; do cat "$f" >> restored/kernel.config; printf '\n' >> restored/kernel.config; done
+          : > restored/Module.symvers
+          for f in inputs/symvers.part*; do cat "$f" >> restored/Module.symvers; printf '\n' >> restored/Module.symvers; done
+          echo "Config lines: $(wc -l < restored/kernel.config)"
+          echo "Symvers lines: $(grep -cv '^$' restored/Module.symvers)"
+          grep '^CONFIG_LOCALVERSION=' restored/kernel.config
+          grep '^CONFIG_MODVERSIONS=' restored/kernel.config
+          grep '^CONFIG_LTO_CLANG_FULL=' restored/kernel.config
+          grep '^CONFIG_CC_VERSION_TEXT=' restored/kernel.config
+
+      - name: Download exact AOSP Clang 17.0.4
+        run: |
+          mkdir -p toolchain
+          curl -L --fail --retry 4 --retry-delay 5 \
+            https://github.com/userariii/AOSP-clang/releases/download/clang-r498229b/clang-r498229b.tar.gz \
+            -o /tmp/clang-r498229b.tar.gz
+          tar -xzf /tmp/clang-r498229b.tar.gz -C toolchain
+          CLANG="$(find "$GITHUB_WORKSPACE/toolchain" -type f -name clang -perm -111 | head -n1)"
+          test -n "$CLANG"
+          CLANG_BIN="$(dirname "$CLANG")"
+          echo "$CLANG_BIN" >> "$GITHUB_PATH"
+          echo "CLANG_BIN=$CLANG_BIN" >> "$GITHUB_ENV"
+          "$CLANG" --version
+
+      - name: Checkout matching Bliss kernel source
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/android-generic/kerNel_common.git kernel
+          cd kernel
+          git fetch --depth=1 origin 874e123a2f570d0a99a976cfda74c25600fe2c14
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "874e123a2f570d0a99a976cfda74c25600fe2c14"
+          head -n 8 Makefile
+
+      - name: Prepare kernel tree for external module
+        env:
+          LLVM: "1"
+          LLVM_IAS: "1"
+          ARCH: x86_64
+        run: |
+          cp restored/kernel.config kernel/.config
+          cd kernel
+          export PATH="$CLANG_BIN:$PATH"
+          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 olddefconfig
+          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 -j"$(nproc)" prepare modules_prepare
+          cp ../restored/Module.symvers ./Module.symvers
+          echo "Kernel release:"
+          make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 kernelrelease
+          test "$(make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 kernelrelease)" = "6.1.112-gloria-xanmod1"
+
+      - name: Checkout RTL8852CU driver
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/morrownr/rtl8852cu-20251113.git driver
+          cd driver
+          git fetch --depth=1 origin fcb70aac55585a8e63c72da4e6d24c39d7494307
+          git checkout --detach FETCH_HEAD
+          test "$(git rev-parse HEAD)" = "fcb70aac55585a8e63c72da4e6d24c39d7494307"
+          grep -n "0xC832" os_dep/linux/usb_intf.c | head
+
+      - name: Build 8852cu.ko
+        env:
+          LLVM: "1"
+          LLVM_IAS: "1"
+          ARCH: x86_64
+        run: |
+          export PATH="$CLANG_BIN:$PATH"
+          make -C driver \
+            KSRC="$GITHUB_WORKSPACE/kernel" \
+            CC=clang \
+            LLVM=1 LLVM_IAS=1 ARCH=x86_64 \
+            LOCALVERSION=-xanmod1 \
+            CONFIG_RTW_ANDROID=13 \
+            USER_EXTRA_CFLAGS="-DCONFIG_PLATFORM_ANDROID" \
+            -j"$(nproc)" 2>&1 | tee build.log
+          find driver -name '8852cu.ko' -print
+          KO="$(find driver -name '8852cu.ko' | head -n1)"
+          test -n "$KO"
+          cp "$KO" ./8852cu.ko
+
+      - name: Verify module
+        run: |
+          file 8852cu.ko
+          modinfo 8852cu.ko | tee modinfo.txt
+          VERMAGIC="$(modinfo -F vermagic 8852cu.ko)"
+          echo "VERMAGIC=$VERMAGIC"
+          echo "$VERMAGIC" | grep -q '^6\.1\.112-gloria-xanmod1 '
+          modinfo -F alias 8852cu.ko | tee aliases.txt
+          grep -qi 'v00000BDAp0000C832' aliases.txt
+          sha256sum 8852cu.ko > SHA256SUMS.txt
+          mkdir -p output
+          cp 8852cu.ko modinfo.txt aliases.txt SHA256SUMS.txt build.log output/
+
+      - name: Upload RTL8832CU module
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl8832cu-blissos-6.1.112-gloria-xanmod1
+          path: output/
+          if-no-files-found: error
+          retention-days: 30
