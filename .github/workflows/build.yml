@@ -114,7 +114,7 @@ jobs:
           echo "VERMAGIC=$VERMAGIC"
           echo "$VERMAGIC" | grep -q '^6\.1\.112-gloria-xanmod1 '
           modinfo -F alias 8852cu.ko | tee aliases.txt
-          grep -qi 'v00000BDAp0000C832' aliases.txt
+          grep -qi 'usb:v0BDApC832' aliases.txt
           sha256sum 8852cu.ko > SHA256SUMS.txt
           mkdir -p output
           cp 8852cu.ko modinfo.txt aliases.txt SHA256SUMS.txt build.log output/
