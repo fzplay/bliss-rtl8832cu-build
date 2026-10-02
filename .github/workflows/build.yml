@@ -3,6 +3,8 @@ name: Build RTL8832CU for BlissOS 16.9.7
 on:
   push:
     branches: [ main ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
