@@ -65,12 +65,12 @@ jobs:
           mkdir -p drivers/kernelsu
           printf '# KernelSU placeholder for modules_prepare only\n' > drivers/kernelsu/Kconfig
           sed -i '/^CONFIG_KSU=/d;/^CONFIG_KSU_/d;/^# CONFIG_KSU/d' .config
-          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 olddefconfig
-          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 -j"$(nproc)" prepare modules_prepare
+          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 olddefconfig
+          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 -j"$(nproc)" prepare modules_prepare
           cp ../restored/Module.symvers ./Module.symvers
           echo "Kernel release:"
-          make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 kernelrelease
-          test "$(make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 kernelrelease)" = "6.1.112-gloria-xanmod1"
+          make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 kernelrelease
+          test "$(make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 kernelrelease)" = "6.1.112-gloria-xanmod1"
 
       - name: Checkout RTL8852CU driver
         run: |
@@ -92,7 +92,7 @@ jobs:
             KSRC="$GITHUB_WORKSPACE/kernel" \
             CC=clang \
             LLVM=1 LLVM_IAS=1 ARCH=x86_64 \
-            LOCALVERSION=-xanmod1 \
+            \
             CONFIG_RTW_ANDROID=13 \
             USER_EXTRA_CFLAGS="-DCONFIG_PLATFORM_ANDROID" \
             -j"$(nproc)" 2>&1 | tee build.log
