@@ -19,7 +19,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev dwarves xz-utils zstd git curl file kmod
+          sudo apt-get install -y build-essential bc bison flex libelf-dev libssl-dev dwarves xz-utils zstd git curl file kmod clang lld llvm
 
       - name: Restore exact Bliss kernel inputs
         run: |
@@ -35,19 +35,13 @@ jobs:
           grep '^CONFIG_LTO_CLANG_FULL=' restored/kernel.config
           grep '^CONFIG_CC_VERSION_TEXT=' restored/kernel.config
 
-      - name: Download exact AOSP Clang 17.0.4
+      - name: Setup LLVM toolchain
         run: |
-          mkdir -p toolchain
-          curl -L --fail --retry 4 --retry-delay 5 \
-            https://github.com/userariii/AOSP-clang/releases/download/clang-r498229b/clang-r498229b.tar.gz \
-            -o /tmp/clang-r498229b.tar.gz
-          tar -xzf /tmp/clang-r498229b.tar.gz -C toolchain
-          CLANG="$(find "$GITHUB_WORKSPACE/toolchain" -type f -name clang -perm -111 | head -n1)"
-          test -n "$CLANG"
-          CLANG_BIN="$(dirname "$CLANG")"
-          echo "$CLANG_BIN" >> "$GITHUB_PATH"
+          clang --version
+          ld.lld --version
+          CLANG_BIN="$(dirname "$(command -v clang)")"
           echo "CLANG_BIN=$CLANG_BIN" >> "$GITHUB_ENV"
-          "$CLANG" --version
+          echo "$CLANG_BIN" >> "$GITHUB_PATH"
 
       - name: Checkout matching Bliss kernel source
         run: |
