@@ -61,6 +61,7 @@ jobs:
           cp restored/kernel.config kernel/.config
           cd kernel
           export PATH="$CLANG_BIN:$PATH"
+          rm -rf drivers/kernelsu
           mkdir -p drivers/kernelsu
           printf '# KernelSU placeholder for modules_prepare only\n' > drivers/kernelsu/Kconfig
           sed -i '/^CONFIG_KSU=/d;/^CONFIG_KSU_/d;/^# CONFIG_KSU/d' .config
