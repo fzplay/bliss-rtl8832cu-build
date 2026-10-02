@@ -61,6 +61,9 @@ jobs:
           cp restored/kernel.config kernel/.config
           cd kernel
           export PATH="$CLANG_BIN:$PATH"
+          mkdir -p drivers/kernelsu
+          printf '# KernelSU placeholder for modules_prepare only\n' > drivers/kernelsu/Kconfig
+          sed -i '/^CONFIG_KSU=/d;/^CONFIG_KSU_/d;/^# CONFIG_KSU/d' .config
           make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 olddefconfig
           make LLVM=1 LLVM_IAS=1 ARCH=x86_64 LOCALVERSION=-xanmod1 -j"$(nproc)" prepare modules_prepare
           cp ../restored/Module.symvers ./Module.symvers
