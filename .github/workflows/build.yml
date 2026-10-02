@@ -68,6 +68,11 @@ jobs:
           make LLVM=1 LLVM_IAS=1 ARCH=x86_64 olddefconfig
           make LLVM=1 LLVM_IAS=1 ARCH=x86_64 -j"$(nproc)" prepare modules_prepare
           cp ../restored/Module.symvers ./Module.symvers
+          echo "Build cfg80211 dependency symbols..."
+          make LLVM=1 LLVM_IAS=1 ARCH=x86_64 M=net/wireless -j"$(nproc)" modules
+          test -s net/wireless/Module.symvers
+          cat net/wireless/Module.symvers >> Module.symvers
+          grep -E 'cfg80211_(ch_switch_notify|scan_done|disconnected)' Module.symvers | head
           echo "Kernel release:"
           make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 kernelrelease
           test "$(make -s LLVM=1 LLVM_IAS=1 ARCH=x86_64 kernelrelease)" = "6.1.112-gloria-xanmod1"
