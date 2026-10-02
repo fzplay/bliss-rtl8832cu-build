@@ -51,12 +51,12 @@ jobs:
 
       - name: Checkout matching Bliss kernel source
         run: |
-          git clone --filter=blob:none --no-checkout https://github.com/android-generic/kerNel_common.git kernel
-          cd kernel
-          git fetch --depth=1 origin 874e123a2f570d0a99a976cfda74c25600fe2c14
-          git checkout --detach FETCH_HEAD
-          test "$(git rev-parse HEAD)" = "874e123a2f570d0a99a976cfda74c25600fe2c14"
-          head -n 8 Makefile
+          mkdir -p kernel
+          curl -L --fail --retry 4 --retry-delay 5 \
+            https://codeload.github.com/android-generic/kerNel_common/tar.gz/874e123a2f570d0a99a976cfda74c25600fe2c14 \
+            -o /tmp/kernel-source.tar.gz
+          tar -xzf /tmp/kernel-source.tar.gz --strip-components=1 -C kernel
+          head -n 8 kernel/Makefile
 
       - name: Prepare kernel tree for external module
         env:
@@ -76,12 +76,12 @@ jobs:
 
       - name: Checkout RTL8852CU driver
         run: |
-          git clone --filter=blob:none --no-checkout https://github.com/morrownr/rtl8852cu-20251113.git driver
-          cd driver
-          git fetch --depth=1 origin fcb70aac55585a8e63c72da4e6d24c39d7494307
-          git checkout --detach FETCH_HEAD
-          test "$(git rev-parse HEAD)" = "fcb70aac55585a8e63c72da4e6d24c39d7494307"
-          grep -n "0xC832" os_dep/linux/usb_intf.c | head
+          mkdir -p driver
+          curl -L --fail --retry 4 --retry-delay 5 \
+            https://codeload.github.com/morrownr/rtl8852cu-20251113/tar.gz/fcb70aac55585a8e63c72da4e6d24c39d7494307 \
+            -o /tmp/rtl8852cu.tar.gz
+          tar -xzf /tmp/rtl8852cu.tar.gz --strip-components=1 -C driver
+          grep -n "0xC832" driver/os_dep/linux/usb_intf.c | head
 
       - name: Build 8852cu.ko
         env:
